@@ -1,142 +1,122 @@
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Snake Game</title>
+  <title>Pong Game</title>
   <style>
     body {
       margin: 0;
-      background: #111;
+      background: black;
       display: flex;
       justify-content: center;
       align-items: center;
       height: 100vh;
-      font-family: sans-serif;
     }
     canvas {
-      background: #222;
-      box-shadow: 0 0 20px #0f0;
-    }
-    #score {
-      position: absolute;
-      top: 10px;
-      color: #0f0;
-      font-size: 20px;
+      border: 3px solid #0f0;
+      background: #111;
     }
   </style>
 </head>
 <body>
-  <div id="score">Score: 0</div>
-  <canvas id="game" width="400" height="400"></canvas>
+  <canvas id="pong" width="600" height="400"></canvas>
 
   <script>
-    const canvas = document.getElementById('game');
-    const ctx = canvas.getContext('2d');
+    const canvas = document.getElementById("pong");
+    const ctx = canvas.getContext("2d");
 
-    const gridSize = 20;
-    const tileCount = canvas.width / gridSize;
+    const paddleWidth = 10, paddleHeight = 100;
+    const ballSize = 10;
 
-    let snake = [{ x: 10, y: 10 }];
-    let dx = 0;
-    let dy = 0;
-    let food = spawnFood();
-    let score = 0;
+    let playerY = canvas.height / 2 - paddleHeight / 2;
+    let aiY = canvas.height / 2 - paddleHeight / 2;
 
-    document.addEventListener('keydown', keyDown);
+    let ballX = canvas.width / 2;
+    let ballY = canvas.height / 2;
+    let ballSpeedX = 5;
+    let ballSpeedY = 4;
 
-    function keyDown(e) {
-      switch (e.key) {
-        case 'ArrowLeft':
-          if (dx === 0) {
-            dx = -1; dy = 0;
-          }
-          break;
-        case 'ArrowRight':
-          if (dx === 0) {
-            dx = 1; dy = 0;
-          }
-          break;
-        case 'ArrowUp':
-          if (dy === 0) {
-            dx = 0; dy = -1;
-          }
-          break;
-        case 'ArrowDown':
-          if (dy === 0) {
-            dx = 0; dy = 1;
-          }
-          break;
-      }
+    document.addEventListener("mousemove", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      playerY = e.clientY - rect.top - paddleHeight / 2;
+    });
+
+    function drawRect(x, y, w, h, color) {
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y, w, h);
     }
 
-    function spawnFood() {
-      return {
-        x: Math.floor(Math.random() * tileCount),
-        y: Math.floor(Math.random() * tileCount)
-      };
+    function drawBall(x, y, r, color) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2, false);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function resetBall() {
+      ballX = canvas.width / 2;
+      ballY = canvas.height / 2;
+      ballSpeedX *= -1;
+      ballSpeedY = 4 * (Math.random() > 0.5 ? 1 : -1);
     }
 
     function update() {
-      const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+      ballX += ballSpeedX;
+      ballY += ballSpeedY;
 
-      // Game over: Wall collision
+      // Wall bounce
+      if (ballY <= 0 || ballY + ballSize >= canvas.height) {
+        ballSpeedY *= -1;
+      }
+
+      // Player paddle collision
       if (
-        head.x < 0 || head.x >= tileCount ||
-        head.y < 0 || head.y >= tileCount
+        ballX <= paddleWidth &&
+        ballY > playerY &&
+        ballY < playerY + paddleHeight
       ) {
-        resetGame();
-        return;
+        ballSpeedX *= -1;
       }
 
-      // Game over: Self collision
-      for (let i = 0; i < snake.length; i++) {
-        if (snake[i].x === head.x && snake[i].y === head.y) {
-          resetGame();
-          return;
-        }
+      // AI paddle collision
+      if (
+        ballX + ballSize >= canvas.width - paddleWidth &&
+        ballY > aiY &&
+        ballY < aiY + paddleHeight
+      ) {
+        ballSpeedX *= -1;
       }
 
-      snake.unshift(head);
-
-      // Eat food
-      if (head.x === food.x && head.y === food.y) {
-        score++;
-        document.getElementById('score').textContent = 'Score: ' + score;
-        food = spawnFood();
+      // AI movement (simple follow)
+      const aiCenter = aiY + paddleHeight / 2;
+      if (aiCenter < ballY) {
+        aiY += 3;
       } else {
-        snake.pop();
+        aiY -= 3;
+      }
+
+      // Reset if ball goes out
+      if (ballX < 0 || ballX > canvas.width) {
+        resetBall();
       }
     }
 
     function draw() {
-      ctx.fillStyle = '#222';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Draw snake
-      ctx.fillStyle = '#0f0';
-      for (let part of snake) {
-        ctx.fillRect(part.x * gridSize, part.y * gridSize, gridSize - 2, gridSize - 2);
-      }
-
-      // Draw food
-      ctx.fillStyle = 'red';
-      ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 2, gridSize - 2);
+      drawRect(0, playerY, paddleWidth, paddleHeight, "#0f0"); // Player
+      drawRect(canvas.width - paddleWidth, aiY, paddleWidth, paddleHeight, "#f00"); // AI
+      drawBall(ballX, ballY, ballSize, "#fff"); // Ball
     }
 
-    function resetGame() {
-      snake = [{ x: 10, y: 10 }];
-      dx = dy = 0;
-      food = spawnFood();
-      score = 0;
-      document.getElementById('score').textContent = 'Score: 0';
-    }
-
-    function gameLoop() {
+    function loop() {
       update();
       draw();
+      requestAnimationFrame(loop);
     }
 
-    setInterval(gameLoop, 100); // 10 FPS
+    loop();
   </script>
 </body>
 </html>
